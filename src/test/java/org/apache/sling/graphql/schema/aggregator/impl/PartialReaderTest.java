@@ -146,11 +146,37 @@ public class PartialReaderTest {
                 PartialReader.SyntaxException.class,
                 () -> new PartialReader(
                         PartialInfo.EMPTY,
-                        getStringReaderSupplier(String.format("PARTIAL:test\n%s:something\n", invalidName))));
+                        getStringReaderSupplier(String.format("%s:something\nPARTIAL:test\n", invalidName))));
         final String expected = "Invalid section name 'REQUIRE'";
         assertTrue(
                 String.format("Expected %s in %s", expected, e.getMessage()),
                 e.getMessage().contains(expected));
+    }
+
+    @Test
+    public void unknownSectionLikeLineInsideSectionIsIgnored() throws Exception {
+        final PartialReader p = new PartialReader(
+                PartialInfo.EMPTY,
+                getStringReaderSupplier("PARTIAL:test\nTODO:this is content\nTYPES:\ntype X { id: ID }\n"));
+        assertSection(p, "PARTIAL", "test", "TODO:this is content");
+        assertSection(p, "TYPES", "", "type X \\{ id: ID \\}");
+    }
+
+    @Test
+    public void unknownSectionLikeLinesAreIgnoredGenericallyInsideKnownSections() throws Exception {
+        final PartialReader p = new PartialReader(
+                PartialInfo.EMPTY,
+                getStringReaderSupplier("PARTIAL:test\n"
+                        + "TODO:inside-partial\n"
+                        + "QUERY:\n"
+                        + "NOTE:inside-query\n"
+                        + "viewer: String\n"
+                        + "TYPES:\n"
+                        + "FIXME:inside-types\n"
+                        + "type X { id: ID }\n"));
+        assertSection(p, "PARTIAL", "test", "TODO:inside-partial");
+        assertSection(p, "QUERY", "", "NOTE:inside-query\\s+viewer: String");
+        assertSection(p, "TYPES", "", "FIXME:inside-types\\s+type X \\{ id: ID \\}");
     }
 
     @Test
