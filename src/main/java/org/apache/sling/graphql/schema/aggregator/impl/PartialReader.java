@@ -218,17 +218,23 @@ public class PartialReader implements Partial {
             if (c == EOL) {
                 final Matcher m = SECTION_LINE.matcher(line);
                 if (m.matches()) {
-                    // Add previous section
-                    addSectionIfNameIsSet(
-                            source,
-                            toSectionName(sectionName),
-                            sectionDescription,
-                            lastSectionStart,
-                            charCount - line.length());
-                    // And setup for the new section
-                    sectionName = m.group(1).trim();
-                    sectionDescription = m.group(2).trim();
-                    lastSectionStart = charCount + 1;
+                    final String matchedSectionName = m.group(1).trim();
+                    final SectionName parsedSectionName = toSectionNameOrNull(matchedSectionName);
+                    if (parsedSectionName != null) {
+                        // Add previous section
+                        addSectionIfNameIsSet(
+                                source,
+                                toSectionName(sectionName),
+                                sectionDescription,
+                                lastSectionStart,
+                                charCount - line.length());
+                        // And setup for the new section
+                        sectionName = parsedSectionName.name();
+                        sectionDescription = m.group(2).trim();
+                        lastSectionStart = charCount + 1;
+                    } else if (sectionName == null) {
+                        throw new SyntaxException(String.format("Invalid section name '%s'", matchedSectionName));
+                    }
                 }
                 line = new StringBuilder();
             } else {
@@ -267,6 +273,17 @@ public class PartialReader implements Partial {
             return SectionName.valueOf(str);
         } catch (Exception e) {
             throw new SyntaxException(String.format("Invalid section name '%s'", str));
+        }
+    }
+
+    private SectionName toSectionNameOrNull(String str) {
+        if (str == null) {
+            return null;
+        }
+        try {
+            return SectionName.valueOf(str);
+        } catch (Exception e) {
+            return null;
         }
     }
 
